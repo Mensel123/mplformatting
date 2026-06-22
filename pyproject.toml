@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mplformatting"
+version = "0.1.0"
+description = "Matplotlib formatting helpers: log ticks, scientific labels, mixed tick directions and custom style."
+authors = [{ name = "Your Name" }]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "matplotlib",
+    "numpy"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mplformatting"]
+
+[tool.setuptools.package-data]
+mplformatting = ["paper.mpltstyle"]

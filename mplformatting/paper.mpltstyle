@@ -1,0 +1,88 @@
+########### Figure & save ######################################################
+
+figure.figsize: 10, 4.5
+figure.dpi: 100
+figure.facecolor: white
+figure.labelsize: 24
+figure.labelweight: normal
+
+
+axes.facecolor: white
+savefig.facecolor: white
+savefig.bbox: tight
+
+########### Axes & spines ######################################################
+
+axes.spines.top: True
+axes.spines.right: True
+axes.spines.left: True
+axes.spines.bottom: True
+axes.linewidth: 2.0
+axes.edgecolor: black
+axes.grid: False
+
+axes.labelsize: 24
+axes.titlesize: 24
+axes.labelweight: normal
+axes.titleweight: normal
+axes.titlepad: 4
+
+axes.formatter.use_mathtext: True
+
+# Bright-ish color cycle (tweak if you like)
+axes.prop_cycle: cycler('color', ["#1f77b4","#17becf",  "#9467bd","#8c564b","#e377c2","#ff7f0e","#bcbd22", "#7f7f7f","#d62728","#2ca02c"])
+
+########### Lines ##############################################################
+
+lines.linewidth: 2.0
+lines.marker: None
+lines.solid_capstyle: butt
+
+########### Ticks ##############################################################
+
+# Inward ticks on all four sides
+xtick.top: True
+xtick.bottom: True
+ytick.left: True
+ytick.right: True
+
+xtick.direction: in
+ytick.direction: in
+
+xtick.major.size: 10
+ytick.major.size: 10
+xtick.major.width: 2.5
+ytick.major.width: 2.5
+
+xtick.minor.visible: True
+ytick.minor.visible: True
+xtick.minor.size: 7
+ytick.minor.size: 7
+xtick.minor.width: 2.5
+ytick.minor.width: 2.5
+
+xtick.labelsize: 23
+ytick.labelsize: 23
+
+xtick.major.pad: 8
+ytick.major.pad: 8
+
+
+# main font
+font.weight: normal
+font.size: 18
+
+########### Legend #############################################################
+
+legend.frameon: False
+legend.fancybox: False
+legend.framealpha: 1.0
+legend.edgecolor: black
+legend.fontsize: 18
+legend.title_fontsize: 30
+legend.loc: upper right   # (putting it outside needs to be done in code)
+
+
+
+# make math (superscripts) match the same sans font
+mathtext.fontset: custom
