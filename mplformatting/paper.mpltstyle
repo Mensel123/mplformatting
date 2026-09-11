@@ -72,17 +72,6 @@ ytick.major.pad: 8
 font.weight: normal
 font.size: 18
 
-########### Legend #############################################################
-
-legend.frameon: False
-legend.fancybox: False
-legend.framealpha: 1.0
-legend.edgecolor: black
-legend.fontsize: 18
-legend.title_fontsize: 30
-legend.loc: upper right   # (putting it outside needs to be done in code)
-
-
 
 # make math (superscripts) match the same sans font
 mathtext.fontset: custom

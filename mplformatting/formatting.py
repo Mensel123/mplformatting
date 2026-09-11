@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.ticker import FixedLocator, ScalarFormatter
+from matplotlib.ticker import FixedLocator
 from contextlib import contextmanager
 import matplotlib.ticker as mticker
 from matplotlib.ticker import LogFormatterMathtext
@@ -84,24 +84,6 @@ def _set_log_decade_ticks(ax, axis="y", max_ticks=6):
         axis_obj.set_minor_locator(FixedLocator(minor_locs))
 
 
-import matplotlib.ticker as mticker
-
-def ticks_from_limits(ax, max_xticks=6, max_yticks=6):
-    """
-    Use 'nice' tick locations, but limit the number of ticks
-    on linear axes to at most max_xticks / max_yticks.
-    """
-    if ax.get_xscale() == "linear" and max_xticks >= 2:
-        ax.xaxis.set_major_locator(
-            mticker.MaxNLocator(nbins=max_xticks)
-        )
-
-    if ax.get_yscale() == "linear" and max_yticks >= 2:
-        ax.yaxis.set_major_locator(
-            mticker.MaxNLocator(nbins=max_yticks)
-        )
-
-
 
 # --------------------------
 # SCIENTIFIC FORMATTER
@@ -146,82 +128,90 @@ def use_log_format(ax, axis="y", max_ticks=6):
         ax.xaxis.set_major_formatter(fmt)
         ax.xaxis.set_minor_formatter(minor_fmt)
 
-
-from matplotlib.ticker import LogLocator
-
-def add_log_minor_ticks(ax, axis="y"):
-    # Minor ticks at 2–9 per decade
-    locator = LogLocator(base=10.0, subs=range(2, 10))
-
-    if axis == "y":
-        ax.yaxis.set_minor_locator(locator)
-        ax.yaxis.set_minor_formatter(None)
-    elif axis == "x":
-        ax.xaxis.set_minor_locator(locator)
-        ax.xaxis.set_minor_formatter(None)
-
-
 # --------------------------
 # MIXED TICK DIRECTIONS
 # --------------------------
-def _setup_mixed_tick_directions(ax):
-    """
-    Make left/bottom ticks go OUT and top/right ticks go IN, with
-    no tick labels on the top/right. Uses twinned axes once per Axes.
+def _drop_edges(locs, vmin, vmax):
+    lo, hi = min(vmin, vmax), max(vmin, vmax)
+    return [v for v in locs
+            if lo <= v <= hi
+            and not (np.isclose(v, lo) or np.isclose(v, hi))]
 
-    Important: does NOT touch minor locators, so custom log-decade
-    logic from _set_log_decade_ticks() is preserved.
-    """
 
-    # Avoid doing this twice on the same Axes
-    if getattr(ax, "_mixed_tick_setup_done", False):
+def _sync_twins(ax, *_):
+    """Mirror the main axes' ticks onto the top/right twins."""
+    ax_top = getattr(ax, "_top_ticks_ax", None)
+    ax_right = getattr(ax, "_right_ticks_ax", None)
+    if ax_top is None or ax_right is None:
         return
 
-    # --- Main axes: left & bottom ticks OUT ---
-    # Do NOT call ax.minorticks_on() here; it would override custom locators.
+    # --- top twin mirrors x ---
+    ax_top.set_xscale(ax.get_xscale())
+    ax_top.set_xlim(ax.get_xlim())
+    x0, x1 = ax.get_xlim()
+    # NOTE: ask the MAIN axes for its ticks; never hand its locator object
+    # to the twin, that would rebind locator.axis to the twin.
+    ax_top.xaxis.set_major_locator(
+        FixedLocator(_drop_edges(ax.get_xticks(), x0, x1)))
+    ax_top.xaxis.set_minor_locator(
+        FixedLocator(_drop_edges(ax.get_xticks(minor=True), x0, x1)))
+
+    # --- right twin mirrors y ---
+    ax_right.set_yscale(ax.get_yscale())
+    ax_right.set_ylim(ax.get_ylim())
+    y0, y1 = ax.get_ylim()
+    ax_right.yaxis.set_major_locator(
+        FixedLocator(_drop_edges(ax.get_yticks(), y0, y1)))
+    ax_right.yaxis.set_minor_locator(
+        FixedLocator(_drop_edges(ax.get_yticks(minor=True), y0, y1)))
+
+
+def setup_mixed_tick_directions(ax):
+    # (Re-)assert direction on EVERY call, not just the first one.
     ax.tick_params(axis='x', which='both',
                    bottom=True, top=False, direction='out')
     ax.tick_params(axis='y', which='both',
                    left=True, right=False, direction='out')
 
-    # --- Create twin axes for top and right ---
-    ax_top = ax.twiny()
-    ax_right = ax.twinx()
+    if not getattr(ax, "_mixed_tick_setup_done", False):
+        ax_top = ax.twiny()
+        ax_right = ax.twinx()
+        ax._top_ticks_ax = ax_top
+        ax._right_ticks_ax = ax_right
+        ax._mixed_tick_setup_done = True
 
-    # Match scales and limits so twins align perfectly
-    ax_top.set_xscale(ax.get_xscale())
-    ax_top.set_xlim(ax.get_xlim())
+        for a in (ax_top, ax_right):
+            a.set_navigate(False)
+            a.patch.set_visible(False)
 
-    ax_right.set_yscale(ax.get_yscale())
-    ax_right.set_ylim(ax.get_ylim())
+        ax.callbacks.connect('xlim_changed', lambda a: _sync_twins(ax))
+        ax.callbacks.connect('ylim_changed', lambda a: _sync_twins(ax))
+    else:
+        ax_top = ax._top_ticks_ax
+        ax_right = ax._right_ticks_ax
 
-    # Copy locators & formatters from the main axes so whatever
-    # _set_log_decade_ticks decided is used on all four sides
-    ax_top.xaxis.set_major_locator(ax.xaxis.get_major_locator())
-    ax_top.xaxis.set_minor_locator(ax.xaxis.get_minor_locator())
-    ax_top.xaxis.set_major_formatter(ax.xaxis.get_major_formatter())
-    ax_top.xaxis.set_minor_formatter(ax.xaxis.get_minor_formatter())
-
-    ax_right.yaxis.set_major_locator(ax.yaxis.get_major_locator())
-    ax_right.yaxis.set_minor_locator(ax.yaxis.get_minor_locator())
-    ax_right.yaxis.set_major_formatter(ax.yaxis.get_major_formatter())
-    ax_right.yaxis.set_minor_formatter(ax.yaxis.get_minor_formatter())
-
-    # --- Style ticks on the twins: IN, no labels, hide opposite spine ---
-    ax_top.tick_params(axis='x', which='both',
-                       top=True, bottom=False,
-                       direction='in', labeltop=False)
+    # Top twin: x ticks inward on top only; its y axis must be fully dead.
+    ax_top.xaxis.set_major_formatter(NullFormatter())
+    ax_top.xaxis.set_minor_formatter(NullFormatter())
+    ax_top.tick_params(axis='x', which='both', top=True, bottom=False,
+                       direction='in', labeltop=False, labelbottom=False)
+    ax_top.tick_params(axis='y', which='both', left=False, right=False,
+                       labelleft=False, labelright=False)
+    ax_top.yaxis.set_visible(False)
     ax_top.spines['bottom'].set_visible(False)
 
-    ax_right.tick_params(axis='y', which='both',
-                         right=True, left=False,
-                         direction='in', labelright=False)
+    # Right twin: y ticks inward on right only; its x axis must be fully dead.
+    ax_right.yaxis.set_major_formatter(NullFormatter())
+    ax_right.yaxis.set_minor_formatter(NullFormatter())
+    ax_right.tick_params(axis='y', which='both', right=True, left=False,
+                         direction='in', labelright=False, labelleft=False)
+    ax_right.tick_params(axis='x', which='both', bottom=False, top=False,
+                         labelbottom=False, labeltop=False)
+    ax_right.xaxis.set_visible(False)
     ax_right.spines['left'].set_visible(False)
 
-    # Mark as done so we don't add more twins if apply() is called again
-    ax._mixed_tick_setup_done = True
-    ax._top_ticks_ax = ax_top
-    ax._right_ticks_ax = ax_right
+    _sync_twins(ax)
+    return ax
 
 def _is_top_row(ax):
     try:
@@ -467,8 +457,7 @@ def apply(
         use_log_format(ax, axis="y", max_ticks=max_yticks)
 
     # Mixed tick directions: left/bottom OUT, top/right IN (no labels)
-    _setup_mixed_tick_directions(ax)
-    _hide_ticks_on_frame(ax)
+    setup_mixed_tick_directions(ax)
 
     if legend_wrap_chars is not None:
         wrap_legend_labels(ax, max_chars=legend_wrap_chars)
