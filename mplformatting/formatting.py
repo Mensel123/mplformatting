@@ -29,6 +29,21 @@ else:
     raise FileNotFoundError(f"Cannot find paper.mpltstyle at: {_style_path}")
 
 
+def _own_locator(locs):
+    """FixedLocator placed by this module (so apply() may replace it later)."""
+    loc = FixedLocator(locs)
+    loc._mplformatting_owned = True
+    return loc
+
+
+def _ticks_pinned_by_user(axis_obj):
+    """True if the tick positions were set explicitly (set_xticks / bar
+    categories), i.e. a FixedLocator that apply() did not install itself."""
+    loc = axis_obj.get_major_locator()
+    return (isinstance(loc, FixedLocator)
+            and not getattr(loc, "_mplformatting_owned", False))
+
+
 def _set_log_decade_ticks(ax, axis="y", max_ticks=6):
     """
     Set major ticks at (some) integer powers of 10.
@@ -64,7 +79,7 @@ def _set_log_decade_ticks(ax, axis="y", max_ticks=6):
         major_exponents = exponents
         major_locs = 10.0 ** major_exponents
 
-        axis_obj.set_major_locator(FixedLocator(major_locs))
+        axis_obj.set_major_locator(_own_locator(major_locs))
 
         # Minor ticks: 2..9 within each decade
         minor_locator = LogLocator(base=10.0, subs=range(2, 10))
@@ -80,7 +95,7 @@ def _set_log_decade_ticks(ax, axis="y", max_ticks=6):
         minor_exponents = np.setdiff1d(exponents, major_exponents)
         minor_locs = 10.0 ** minor_exponents if minor_exponents.size else []
 
-        axis_obj.set_major_locator(FixedLocator(major_locs))
+        axis_obj.set_major_locator(_own_locator(major_locs))
         axis_obj.set_minor_locator(FixedLocator(minor_locs))
 
 
@@ -369,7 +384,7 @@ def set_linear_tick_intervals(
                 np.ceil(xmax / major_interval_x) * major_interval_x + major_interval_x,
                 major_interval_x,
             )
-            ax.xaxis.set_major_locator(FixedLocator(major_ticks))
+            ax.xaxis.set_major_locator(_own_locator(major_ticks))
 
         # Minor ticks (if requested)
         if minor_interval_x is not None:
@@ -390,7 +405,7 @@ def set_linear_tick_intervals(
                 np.ceil(ymax / major_interval_y) * major_interval_y + major_interval_y,
                 major_interval_y,
             )
-            ax.yaxis.set_major_locator(FixedLocator(major_ticks))
+            ax.yaxis.set_major_locator(_own_locator(major_ticks))
 
         if minor_interval_y is not None:
             minor_ticks = np.arange(
@@ -415,6 +430,17 @@ def apply(
     major_interval_y=None,
     minor_interval_y=None,
 ):    # linear x-axis
+
+    # If x ticks were pinned by the caller (set_xticks / set_xticklabels),
+    # the positions belong to those labels: don't move them.
+    # NOTE: don't test for FixedFormatter here -- recent matplotlib makes
+    # set_xticklabels install a FuncFormatter instead.
+    x_has_text_labels = _ticks_pinned_by_user(ax.xaxis)
+    if x_has_text_labels:
+        major_interval_x = None
+        minor_interval_x = None
+        # minor ticks between categories mean nothing: drop them
+        ax.xaxis.set_minor_locator(mticker.NullLocator())
     # ---------------------- Linear Axes ----------------------
     if ax.get_xscale() == "linear" or ax.get_yscale() == "linear":
 
@@ -428,7 +454,8 @@ def apply(
         )
 
         # 2) If no interval was given → fallback to "nice" ticks (≤6)
-        if major_interval_x is None and ax.get_xscale() == "linear":
+        if (major_interval_x is None and ax.get_xscale() == "linear"
+                and not x_has_text_labels):
             ax.xaxis.set_major_locator(mticker.MaxNLocator(nbins=max_xticks))
 
         if major_interval_y is None and ax.get_yscale() == "linear":

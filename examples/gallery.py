@@ -120,6 +120,25 @@ def with_wrapped_legend():
     apply(ax, legend_wrap_chars=14)
     return fig
 
+@case
+def bar_categorical_shared():
+    """Regression: apply() used to move the x ticks under set_xticklabels,
+    so the names drifted off their bars (spacing 1.6, not 1)."""
+    fig, (ax_top, ax_bot) = plt.subplots(2, 1, sharex=True)
+    names = ["alpha", "bravo", "charlie", "delta", "echo"]
+    x = np.arange(len(names)) * 1.6
+    rng = np.random.default_rng(0)
+    for a in (ax_top, ax_bot):
+        a.bar(x, 10 ** rng.uniform(8, 10, len(names)),
+              width=1.0, edgecolor="black")
+        a.set_ylim(1e7, 1e11)
+        a.set_yscale("log")
+    ax_bot.set_xticks(x)
+    ax_bot.set_xticklabels(names, rotation=45, ha="right")
+    apply(ax_top)
+    apply(ax_bot)   # interval must be ignored here
+    return fig
+
 
 def main():
     p = argparse.ArgumentParser()
