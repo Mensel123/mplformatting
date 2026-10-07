@@ -140,6 +140,19 @@ def bar_categorical_shared():
     return fig
 
 
+@case
+def log_y_resized_after_apply():
+    """Regression: on a short log axis the left y-axis drops its 2-9 minor
+    ticks (LogLocator, wanted) but the right twin kept a stale copy."""
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.bar(np.arange(4), [2e8, 3e9, 5e8, 7e9], edgecolor="black")
+    ax.set_yscale("log")
+    ax.set_ylim(1e7, 1e11)
+    apply(ax)
+    fig.set_size_inches(8, 2.5)   # right must drop its minor ticks too
+    return fig
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--out", default="build/gallery")

@@ -82,6 +82,7 @@ def _set_log_decade_ticks(ax, axis="y", max_ticks=6):
         axis_obj.set_major_locator(_own_locator(major_locs))
 
         # Minor ticks: 2..9 within each decade
+        # (LogLocator drops them when the axes is short: wanted)
         minor_locator = LogLocator(base=10.0, subs=range(2, 10))
         axis_obj.set_minor_locator(minor_locator)
 
@@ -153,6 +154,25 @@ def _drop_edges(locs, vmin, vmax):
             and not (np.isclose(v, lo) or np.isclose(v, hi))]
 
 
+class _MirrorLocator(mticker.Locator):
+    """Ticks of the main axes, looked up at draw time (minus the edges).
+
+    A FixedLocator copy goes stale when the main axes' ticks change after
+    apply() (resize, shared limits, LogLocator thinning)."""
+
+    def __init__(self, parent_axis, minor=False):
+        self._parent_axis = parent_axis
+        self._minor = minor
+
+    def __call__(self):
+        vmin, vmax = self._parent_axis.get_view_interval()
+        return _drop_edges(self._parent_axis.get_ticklocs(minor=self._minor),
+                           vmin, vmax)
+
+    def tick_values(self, vmin, vmax):
+        return self()
+
+
 def _sync_twins(ax, *_):
     """Mirror the main axes' ticks onto the top/right twins."""
     ax_top = getattr(ax, "_top_ticks_ax", None)
@@ -163,22 +183,16 @@ def _sync_twins(ax, *_):
     # --- top twin mirrors x ---
     ax_top.set_xscale(ax.get_xscale())
     ax_top.set_xlim(ax.get_xlim())
-    x0, x1 = ax.get_xlim()
     # NOTE: ask the MAIN axes for its ticks; never hand its locator object
     # to the twin, that would rebind locator.axis to the twin.
-    ax_top.xaxis.set_major_locator(
-        FixedLocator(_drop_edges(ax.get_xticks(), x0, x1)))
-    ax_top.xaxis.set_minor_locator(
-        FixedLocator(_drop_edges(ax.get_xticks(minor=True), x0, x1)))
+    ax_top.xaxis.set_major_locator(_MirrorLocator(ax.xaxis))
+    ax_top.xaxis.set_minor_locator(_MirrorLocator(ax.xaxis, minor=True))
 
     # --- right twin mirrors y ---
     ax_right.set_yscale(ax.get_yscale())
     ax_right.set_ylim(ax.get_ylim())
-    y0, y1 = ax.get_ylim()
-    ax_right.yaxis.set_major_locator(
-        FixedLocator(_drop_edges(ax.get_yticks(), y0, y1)))
-    ax_right.yaxis.set_minor_locator(
-        FixedLocator(_drop_edges(ax.get_yticks(minor=True), y0, y1)))
+    ax_right.yaxis.set_major_locator(_MirrorLocator(ax.yaxis))
+    ax_right.yaxis.set_minor_locator(_MirrorLocator(ax.yaxis, minor=True))
 
 
 def setup_mixed_tick_directions(ax):
